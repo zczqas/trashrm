@@ -1,5 +1,4 @@
 use std::env;
-use std::fmt::format;
 use std::fs;
 use std::io;
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
@@ -33,7 +32,10 @@ impl Trash {
         let info = root.join("info");
         fs::create_dir_all(&files)?;
         fs::create_dir_all(&info)?;
-        Ok(Trash { files, info: Some(info) })
+        Ok(Trash {
+            files,
+            info: Some(info),
+        })
     }
 
     fn unique_name(&self, base: &str) -> String {
@@ -57,7 +59,6 @@ impl Trash {
         }
     }
 }
-
 
 fn iso_utc(secs: u64) -> String {
     // Howard Hinnant's civil-from-days algorithm.
@@ -128,7 +129,10 @@ fn decode_path(s: &str) -> PathBuf {
 
 fn absolute(path: &Path) -> io::Result<PathBuf> {
     let name = path.file_name().ok_or_else(|| {
-        io::Error::new(io::ErrorKind::InvalidInput, "refusing to remove '.' or '..'")
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "refusing to remove '.' or '..'",
+        )
     })?;
     let parent = match path.parent() {
         Some(p) if !p.as_os_str().is_empty() => p,
@@ -172,7 +176,6 @@ fn move_path(src: &Path, dst: &Path) -> io::Result<()> {
     }
 }
 
-
 fn trash_one(trash: &Trash, target: &Path) -> io::Result<PathBuf> {
     let abs = absolute(target)?;
     let base = abs
@@ -182,7 +185,10 @@ fn trash_one(trash: &Trash, target: &Path) -> io::Result<PathBuf> {
     let name = trash.unique_name(&base);
     let dest = trash.files.join(&name);
 
-    let info_path = trash.info.as_ref().map(|i| i.join(format!("{name}.trashinfo")));
+    let info_path = trash
+        .info
+        .as_ref()
+        .map(|i| i.join(format!("{name}.trashinfo")));
     if let Some(ip) = &info_path {
         let body = format!(
             "[Trash Info]\nPath={}\nDeletionDate={}\n",
@@ -213,8 +219,12 @@ fn read_entries(trash: &Trash) -> io::Result<Vec<Entry>> {
     let mut out = Vec::new();
     for e in fs::read_dir(info)? {
         let path = e?.path();
-        let Some(fname) = path.file_name().and_then(|n| n.to_str()) else { continue };
-        let Some(name) = fname.strip_suffix(".trashinfo") else { continue };
+        let Some(fname) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        let Some(name) = fname.strip_suffix(".trashinfo") else {
+            continue;
+        };
         let text = fs::read_to_string(&path).unwrap_or_default();
         let mut orig = None;
         let mut date = String::new();
@@ -226,7 +236,11 @@ fn read_entries(trash: &Trash) -> io::Result<Vec<Entry>> {
             }
         }
         if let Some(original) = orig {
-            out.push(Entry { name: name.to_string(), date, original });
+            out.push(Entry {
+                name: name.to_string(),
+                date,
+                original,
+            });
         }
     }
     out.sort_by(|a, b| a.date.cmp(&b.date));
@@ -248,7 +262,10 @@ fn undo(trash: &Trash, verbose: bool) -> io::Result<()> {
     if last.original.symlink_metadata().is_ok() {
         return Err(io::Error::new(
             io::ErrorKind::AlreadyExists,
-            format!("'{}' already exists; not overwriting", last.original.display()),
+            format!(
+                "'{}' already exists; not overwriting",
+                last.original.display()
+            ),
         ));
     }
     if let Some(parent) = last.original.parent() {
@@ -263,7 +280,6 @@ fn undo(trash: &Trash, verbose: bool) -> io::Result<()> {
     }
     Ok(())
 }
-
 
 const USAGE: &str = "usage: del [-rRfdv] FILE...\n       del --list | --undo | --help | --version";
 
@@ -345,7 +361,10 @@ fn main() -> ExitCode {
         match fs::symlink_metadata(f) {
             Err(e) if e.kind() == io::ErrorKind::NotFound => {
                 if !force {
-                    eprintln!("del: cannot remove '{}': No such file or directory", f.display());
+                    eprintln!(
+                        "del: cannot remove '{}': No such file or directory",
+                        f.display()
+                    );
                     failed = true;
                 }
                 continue;
@@ -356,7 +375,10 @@ fn main() -> ExitCode {
                 continue;
             }
             Ok(md) if md.is_dir() && !recursive => {
-                eprintln!("del: cannot remove '{}': Is a directory (use -r)", f.display());
+                eprintln!(
+                    "del: cannot remove '{}': Is a directory (use -r)",
+                    f.display()
+                );
                 failed = true;
                 continue;
             }
@@ -374,7 +396,11 @@ fn main() -> ExitCode {
             }
         }
     }
-    if failed { ExitCode::FAILURE } else { ExitCode::SUCCESS }
+    if failed {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    }
 }
 
 fn report(r: io::Result<()>) -> ExitCode {
